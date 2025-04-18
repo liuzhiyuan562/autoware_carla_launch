@@ -9,4 +9,16 @@
         "LIBCLANG_STATIC_PATH": "/usr/lib/llvm-12/lib",
         "CLANG_PATH": "/usr/bin/clang-12",
     },
+
+    "python.autoComplete.extraPaths": [
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "~/autoware_carla_launch/k8s/autoware-api/autoware_adapi_msgs/install/autoware_adapi_v1_msgs/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "~/autoware_carla_launch/k8s/autoware-api/autoware_adapi_msgs/install/autoware_adapi_v1_msgs/local/lib/python3.10/dist-packages"
+    ],
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.analysis.typeCheckingMode": "basic",
 }

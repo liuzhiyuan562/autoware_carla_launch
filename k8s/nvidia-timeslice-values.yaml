@@ -1,0 +1,17 @@
+# 注意看，这是命令！！！  采用的是helm，这是helm的values文件
+# 5个GPU实例
+# 不使用MIG
+
+cat > nvidia-timeslice-values.yaml << EOF
+config:
+  map:
+    default: |-
+      version: v1
+      sharing:
+        timeSlicing:
+          resources:
+            - name: nvidia.com/gpu
+              replicas: 5  # 将 GPU 虚拟为 5 个实例
+      flags:
+        migStrategy: "none"  # 不使用 MIG
+EOF

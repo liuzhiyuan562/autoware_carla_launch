@@ -1,0 +1,67 @@
+# carla-template.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carla-sim-{{CARLA_ID}}
+  labels:
+    app: carla-simulator
+    carla-id: "{{CARLA_ID}}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: carla-simulator
+      carla-id: "{{CARLA_ID}}"
+  template:
+    metadata:
+      labels:
+        app: carla-simulator
+        carla-id: "{{CARLA_ID}}"
+    spec:
+      containers:
+      - name: carla
+        image: carlasim/carla:latest
+        env:
+        - name: CARLA_ID
+          value: "{{CARLA_ID}}"
+        - name: CARLA_PORT
+          value: "2000"
+        - name: CARLA_TOWN
+          value: "{{CARLA_TOWN}}"
+        ports:
+        - containerPort: 2000
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+      - name: zenoh-bridge
+        image: your-registry/zenoh-carla-bridge:latest
+        env:
+        - name: CARLA_ID
+          value: "{{CARLA_ID}}"
+        - name: CARLA_HOST
+          value: "localhost"
+        - name: ZENOH_PORT
+          value: "7447"
+        ports:
+        - containerPort: 7447
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: carla-sim-{{CARLA_ID}}
+  labels:
+    app: carla-simulator
+    carla-id: "{{CARLA_ID}}"
+spec:
+  selector:
+    app: carla-simulator
+    carla-id: "{{CARLA_ID}}"
+  ports:
+  - port: 2000
+    name: simulator
+  - port: 7447
+    name: zenoh

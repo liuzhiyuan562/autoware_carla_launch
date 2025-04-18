@@ -1,0 +1,33 @@
+# autoware-template.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: autoware-{{AUTOWARE_ID}}
+  labels:
+    app: autoware
+    autoware-id: "{{AUTOWARE_ID}}"
+    carla-id: "{{CARLA_ID}}"  # 关联到特定的Carla实例
+spec:
+  containers:
+  - name: autoware
+    image: your-registry/autoware:latest
+    env:
+    - name: AUTOWARE_ID
+      value: "{{AUTOWARE_ID}}"
+    - name: CARLA_ID
+      value: "{{CARLA_ID}}"
+    - name: CARLA_HOST
+      value: "carla-sim-{{CARLA_ID}}"  # 连接到特定的Carla服务
+    - name: ZENOH_BRIDGE_HOST
+      value: "carla-sim-{{CARLA_ID}}"
+    - name: MAP_NAME
+      value: "{{MAP_NAME}}"
+    - name: VEHICLE_MODEL
+      value: "{{VEHICLE_MODEL}}"
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+      limits:
+        memory: "8Gi"
+        cpu: "4"

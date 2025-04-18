@@ -1,0 +1,180 @@
+# 该文件实现了VNC+Carla部署，两个容器在同一个container中运行，carla的界面通过VNC显示，这样可以在没有显示器的情况下运行carla仿真器，然后可以通过浏览器远程访问carla显示界面，也就是VNC的显示界面。
+# 同时也实现了autoware_carla_launch，一共是四个container，都在一个pod中
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-vnc
+  labels: 
+    app: simple-vnc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3 # 保留历史版本数量
+  selector:
+    matchLabels:
+      app: simple-vnc
+  template:
+    metadata:
+      labels:
+        app: simple-vnc
+    spec:
+      volumes:
+        - name: x11-socket
+          emptyDir: {}
+      containers:
+      - name: vnc
+        image: kasmweb/desktop:1.13.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: RESOLUTION
+          value: "1920x1080"
+        - name: KASM_USER
+          value: "smt"
+        - name: VNC_PW
+          value: "123"
+        - name: KASM_VNC_SEAMLESS_MOUSE
+          value: "true"
+        - name: KASM_INPUT_CAPTURE_MOUSE
+          value: "true"
+        ports:
+        - containerPort: 6901
+          name: vnc-web
+        volumeMounts:
+        - name: x11-socket
+          mountPath: /tmp/.X11-unix
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - "/bin/bash"
+              - "-c"
+              - |
+                # 不使用 sleep，简单记录执行情况
+                echo "PostStart hook executed at $(date)" > /tmp/executed.txt
+                echo $DISPLAY > /tmp/display.txt
+                sleep 2
+                xset -dpms
+                xset s off
+                xhost + > /tmp/xhost.txt 2>&1
+      - name: carla-0-9-14
+        image: carlasim/carla:0.9.14
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        env:
+        - name: DISPLAY
+          value: ":1"
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "all"
+        volumeMounts:
+        - name: x11-socket
+          mountPath: /tmp/.X11-unix
+        resources:
+          limits:
+            memory: "32Gi"
+            cpu: "8"
+            nvidia.com/gpu: 1  # 如果有GPU的话
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          # 等待 VNC 容器准备好 X 服务器
+          echo "Waiting for X server socket..."
+          until [ -e /tmp/.X11-unix/X1 ]; do
+            sleep 1
+          done
+          
+          # 等待几秒确保 X 服务器完全就绪
+          sleep 2
+          
+          # 启动 CARLA
+          cd /home/carla
+          ./CarlaUE4.sh -norelativemousemode
+      - name: zenoh-carla-bridge
+        image: 2256906828/zenoh_carla_bridge:0.2.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: x11-socket
+          mountPath: /tmp/.X11-unix
+        command: ["/bin/bash", "-c"]
+        env:
+        - name: RUST_LOG
+          value: "debug"
+        args:
+        - |
+          # 等待carla启动
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          echo "Waiting for Carla to start..."
+          until timeout 1 bash -c "</dev/tcp/localhost/2000" >/dev/null 2>&1; do
+            ATTEMPT=$((ATTEMPT+1))
+            if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
+              echo "Failed to connect to Carla after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            echo "Carla not ready yet, waiting... (ATTEMPT $ATTEMPT/$MAX_ATTEMPTS)"
+            sleep 3
+          done
+
+          sleep 2
+          echo "Carla is ready, starting zenoh-carla-bridge..."
+
+          # env.sh里面用到到该文件
+          sudo touch /.dockerenv
+          cd ~/autoware_carla_launch/
+          source env.sh
+          ./script/run-bridge.sh
+      - name: zenoh-autoware
+        image: 2256906828/zenoh_autoware:0.2.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: x11-socket
+          mountPath: /tmp/.X11-unix
+        command: ["/bin/bash", "-c"]
+        resources:
+          limits:
+            nvidia.com/gpu: 3
+        args:
+        - |
+          # 等待zenoh-carla-bridge启动
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          echo "Waiting for zenoh-carla-bridge to start..."
+          until timeout 1 bash -c "</dev/tcp/localhost/2000" >/dev/null 2>&1; do
+            ATTEMPT=$((ATTEMPT+1))
+            if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
+              echo "Failed to connect to zenoh-carla-bridge after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            echo "zenoh-carla-bridge not ready yet, waiting... (ATTEMPT $ATTEMPT/$MAX_ATTEMPTS)"
+            sleep 3
+          done
+
+          sleep 7
+          echo "zenoh-carla-bridge is ready, starting zenoh-autoware..."
+
+          # env.sh里面用到到该文件
+          sudo touch /.dockerenv
+          cd ~/autoware_carla_launch/
+          source env.sh
+          ./script/run-autoware.sh
+        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: simple-vnc-service
+spec:
+  selector:
+    app: simple-vnc
+  ports:
+  - port: 6901
+    targetPort: 6901
+    name: vnc-web
+  type: NodePort

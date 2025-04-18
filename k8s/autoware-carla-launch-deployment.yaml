@@ -1,0 +1,43 @@
+# 无头模式启动 CARLA 仿真器的 Deployment 配置文件
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoware-carla-launch-deployment
+  labels: 
+    app: autoware-carla-launch-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: carla-0-9-14
+  template:
+    metadata:
+      labels:
+        app: carla-0-9-14
+    spec:
+      containers:
+      - name: carla-0-9-14
+        image: carlasim/carla:0.9.14
+        imagePullPolicy: IfNotPresent
+        # 不使用额外的虚拟显示器，直接使用无屏幕渲染模式
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            # 显示当前文件和目录
+            echo "Current directory: $(pwd)"
+            ls -la
+            
+            # 检查 GPU 可用性
+            nvidia-smi || echo "Warning: nvidia-smi not available"
+            
+            # 运行 CARLA（无屏幕模式）
+            echo "Starting CARLA in headless mode..."
+            ./CarlaUE4.sh -RenderOffScreen -nosound -carla-rpc-port=2000
+        securityContext:
+          privileged: true
+        resources:
+          limits:
+            nvidia.com/gpu: 2
+        ports:
+        - containerPort: 2000
+          name: carla-simulator
