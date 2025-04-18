@@ -13,3 +13,12 @@
 [submodule "src/autoware_launch"]
 	path = src/autoware_launch
 	url = https://github.com/evshary/autoware_launch.git
+[submodule "k8s/zenoh_autoware_fms"]
+	path = k8s/zenoh_autoware_fms
+	url = https://github.com/liuzhiyuan562/zenoh_autoware_fms.git
+[submodule "k8s/autoware-api/autoware_adapi_msgs"]
+	path = k8s/autoware-api/autoware_adapi_msgs
+	url = https://github.com/autowarefoundation/autoware_adapi_msgs.git
+[submodule "k8s/autoware-api/zenoh-python"]
+	path = k8s/autoware-api/zenoh-python
+	url = https://github.com/eclipse-zenoh/zenoh-python.git
