@@ -1,0 +1,151 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scenario-runner-0913-vnc
+  labels:
+    app: scenario-runner-0913-vnc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: scenario-runner-0913-vnc
+  template:
+    metadata:
+      labels:
+        app: scenario-runner-0913-vnc
+    spec:
+      volumes:
+        - name: x11-socket
+          emptyDir: {}
+        - name: dri
+          hostPath:
+            path: /dev/dri
+      containers:
+        - name: kasmvnc
+          image: kasmweb/core-ubuntu-jammy:1.16.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: VNC_PW
+              value: "123456"
+            - name: DISPLAY
+              value: ":1"
+          ports:
+            - containerPort: 6901
+              name: kasmvnc-web
+          volumeMounts:
+            - name: x11-socket
+              mountPath: /tmp/.X11-unix
+            - name: dri
+              mountPath: /dev/dri
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          args:
+            - "/bin/bash"
+            - "-c"
+            - |
+              sleep 3
+              vncserver -hw3d -drinode /dev/dri/renderD128
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - "/bin/bash"
+                - "-c"
+                - |
+                  # mkdir -p /etc/kasmvnc
+                  # echo -e "desktop:\n  gpu:\n    hw3d: true\n    drinode: /dev/dri/renderD128" > /etc/kasmvnc/kasmvnc.yaml
+                  sleep 2
+                  xhost +
+        - name: scenario-runner-0913
+          image: 2256906828/scenario_runner_0913:0.2.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+            - name: DISPLAY
+              value: ":1"
+          resources:
+            limits:
+              memory: 16Gi
+              nvidia.com/gpu: 2
+          ports:
+            - containerPort: 5621
+              name: scenario-runner
+          volumeMounts:
+            - name: x11-socket
+              mountPath: /tmp/.X11-unix
+        - name: zenoh-carla-bridge
+          image: 2256906828/zenoh_carla_bridge:0.4.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+            - name: DISPLAY
+              value: ":1"
+          ports:
+            - containerPort: 5622
+              name: carla-bridge
+          volumeMounts:
+            - name: x11-socket
+              mountPath: /tmp/.X11-unix
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - "/bin/bash"
+                - "-c"
+                - |
+                  sudo touch /.dockerenv
+        - name: zenoh-autoware
+          image: 2256906828/zenoh_autoware:0.3.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+            - name: DISPLAY
+              value: ":1"
+          ports:
+            - containerPort: 5623
+              name: zenoh-autoware
+          volumeMounts:
+            - name: x11-socket
+              mountPath: /tmp/.X11-unix
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - "/bin/bash"
+                - "-c"
+                - |
+                  sudo touch /.dockerenv
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scenario-runner-0913-vnc
+  labels:
+    app: scenario-runner-0913-vnc
+spec:
+  selector:
+    app: scenario-runner-0913-vnc
+  ports:
+    - name: kasmvnc-web
+      port: 5624
+      targetPort: 6901
+    - name: scenario-runner
+      port: 5621
+      targetPort: 5621
+    - name: carla-bridge
+      port: 5622
+      targetPort: 5622
+    - name: zenoh-autoware
+      port: 5623
+      targetPort: 5623
+  type: NodePort
+

@@ -25,7 +25,4 @@ parallel --verbose --lb ::: \
             2>&1 | tee ${LOG_PATH}/autoware.log" \
     "sleep 10 && ${AUTOWARE_CARLA_ROOT}/external/zenoh-plugin-ros2dds/target/release/zenoh-bridge-ros2dds \
             -n /${VEHICLE_NAME} -d ${ROS_DOMAIN_ID} -c ${ZENOH_BRIDGE_ROS2DDS_CONFIG} -e tcp/${ZENOH_CARLA_IP_PORT} -e tcp/${ZENOH_FMS_IP_PORT} \
-            2>&1 | tee ${LOG_PATH}/zenoh_bridge_ros2dds.log" \
-    "sleep 1 && poetry -C ${PYTHON_AGENT_PATH} run python3 ${PYTHON_AGENT_PATH}/simple_spawn_vehicle.py \
-    		--rolename ${VEHICLE_NAME}
-                2>&1 | tee ${LOG_PATH}/vehicle.log"
+            2>&1 | tee ${LOG_PATH}/zenoh_bridge_ros2dds.log"

@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoware-carla-launch-deployment-integration
+  labels: 
+    app: autoware-carla-launch-deployment-integration
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: autoware-carla-launch-deployment-integration
+  template:
+    metadata:
+      labels:
+        app: autoware-carla-launch-deployment-integration
+    spec:
+      volumes:
+        - name: x11-socket
+          emptyDir: {}
+      containers:
+        - name: vnc
+          image: kasmweb/desktop:1.13.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+          - name: RESOLUTION
+            value: "1920x1080"
+          - name: KASM_USER
+            value: "smt"
+          - name: VNC_PW
+            value: "123"
+          - name: KASM_VNC_SEAMLESS_MOUSE
+            value: "true"
+          - name: KASM_INPUT_CAPTURE_MOUSE
+            value: "true"
+          ports:
+          - containerPort: 6901
+            name: vnc-web
+          volumeMounts:
+          - name: x11-socket
+            mountPath: /tmp/.X11-unix
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                - "/bin/bash"
+                - "-c"
+                - |
+                  xset -dpms
+                  xset s off
+                  xhost + > /tmp/xhost.txt 2>&1
